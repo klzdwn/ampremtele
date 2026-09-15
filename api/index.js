@@ -6,9 +6,6 @@ const AM_API_URL = 'https://anita-studio.netlify.app/.netlify/functions/amprem';
 
 const userSessions = {};
 
-// Helper untuk memberikan jeda/delay (ms)
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 // Keyboard Menu Utama
 const mainMenuKeyboard = {
   inline_keyboard: [
@@ -113,7 +110,6 @@ module.exports = async (req, res) => {
   if (!message || !message.text) return res.status(200).send('OK');
 
   const chatId = message.chat.id;
-  const userMessageId = message.message_id; // ID pesan yang dikirim oleh USER
   const text = message.text.trim();
 
   // 2. COMMAND /start DENGAN TOMBOL
@@ -147,7 +143,6 @@ module.exports = async (req, res) => {
   if (session && session.step === 'WAITING_EMAIL' && !text.startsWith('/')) {
     const email = text;
 
-    // Hapus instruksi bot sebelumnya ("Silakan masukkan Email...")
     if (session.promptMessageId) {
       await deleteMessage(chatId, session.promptMessageId);
     }
@@ -187,11 +182,6 @@ module.exports = async (req, res) => {
       );
       delete userSessions[chatId];
     }
-
-    // Tunggu 1 menit (60.000 ms) lalu hapus pesan teks EMAIL milik user
-    await sleep(60000);
-    await deleteMessage(chatId, userMessageId);
-
     return res.status(200).send('OK');
   }
 
@@ -200,7 +190,6 @@ module.exports = async (req, res) => {
     const rawLink = text;
     const email = session.email;
 
-    // Hapus instruksi bot sebelumnya ("Magic Link Terkirim!...")
     if (session.promptMessageId) {
       await deleteMessage(chatId, session.promptMessageId);
     }
@@ -236,11 +225,6 @@ module.exports = async (req, res) => {
     } finally {
       delete userSessions[chatId];
     }
-
-    // Tunggu 1 menit (60.000 ms) lalu hapus pesan RAW LINK milik user
-    await sleep(60000);
-    await deleteMessage(chatId, userMessageId);
-
     return res.status(200).send('OK');
   }
 
