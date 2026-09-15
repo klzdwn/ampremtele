@@ -6,6 +6,20 @@ const AM_API_URL = 'https://anita-studio.netlify.app/.netlify/functions/amprem';
 
 const userSessions = {};
 
+// Keyboard Menu Utama
+const mainMenuKeyboard = {
+  inline_keyboard: [
+    [{ text: "⚡ Mulai Aktivasi Premium ⚡", callback_data: "btn_prem" }]
+  ]
+};
+
+// Keyboard Tombol Kembali
+const backKeyboard = {
+  inline_keyboard: [
+    [{ text: "‹ Kembali", callback_data: "btn_back" }]
+  ]
+};
+
 // Fungsi Kirim Pesan dengan Option (Keyboard/Button)
 async function sendMessage(chatId, text, replyMarkup = null) {
   try {
@@ -43,9 +57,23 @@ module.exports = async (req, res) => {
     const data = callback_query.data;
     await answerCallbackQuery(callback_query.id);
 
+    // Tombol Mulai Aktivasi
     if (data === 'btn_prem') {
       userSessions[chatId] = { step: 'WAITING_EMAIL' };
-      await sendMessage(chatId, "Silakan masukkan *Email* akun Alight Motion kamu:");
+      await sendMessage(
+        chatId, 
+        "Silakan masukkan *Email* akun Alight Motion kamu:", 
+        backKeyboard
+      );
+    } 
+    // Tombol Kembali
+    else if (data === 'btn_back') {
+      delete userSessions[chatId];
+      await sendMessage(
+        chatId, 
+        "🔥 *KALZ ALIGHT MOTION PREMIUM BOT* 🔥\n\nKlik tombol di bawah untuk memulai proses aktivasi akun:", 
+        mainMenuKeyboard
+      );
     }
     return res.status(200).send('OK');
   }
@@ -58,25 +86,22 @@ module.exports = async (req, res) => {
   // 2. COMMAND /start DENGAN TOMBOL
   if (text === '/start') {
     delete userSessions[chatId];
-    
-    const inlineKeyboard = {
-      inline_keyboard: [
-        [{ text: "⚡ Mulai Aktivasi Premium ⚡", callback_data: "btn_prem" }]
-      ]
-    };
-
     await sendMessage(
       chatId, 
       "🔥 *KALZ ALIGHT MOTION PREMIUM BOT* 🔥\n\nKlik tombol di bawah untuk memulai proses aktivasi akun:", 
-      inlineKeyboard
+      mainMenuKeyboard
     );
     return res.status(200).send('OK');
   }
 
-  // COMMAND /prem (Backup jika ngetik manual)
+  // COMMAND /prem
   if (text === '/prem') {
     userSessions[chatId] = { step: 'WAITING_EMAIL' };
-    await sendMessage(chatId, "Silakan masukkan *Email* akun Alight Motion kamu:");
+    await sendMessage(
+      chatId, 
+      "Silakan masukkan *Email* akun Alight Motion kamu:", 
+      backKeyboard
+    );
     return res.status(200).send('OK');
   }
 
@@ -91,13 +116,25 @@ module.exports = async (req, res) => {
       const apiRes = await axios.post(AM_API_URL, { action: 'send-magiclink', email });
       if (apiRes.data.success) {
         userSessions[chatId] = { step: 'WAITING_LINK', email: email };
-        await sendMessage(chatId, "✅ *Magic Link Terkirim!*\n\nBuka email kamu, tahan/salin link dari Alight Motion, lalu *tempelkan (paste) link tersebut di sini*:");
+        await sendMessage(
+          chatId, 
+          "✅ *Magic Link Terkirim!*\n\nBuka email kamu, tahan/salin link dari Alight Motion, lalu *tempelkan (paste) link tersebut di sini*:", 
+          backKeyboard
+        );
       } else {
-        await sendMessage(chatId, `❌ Gagal: ${apiRes.data.message || 'Email tidak valid.'}`);
+        await sendMessage(
+          chatId, 
+          `❌ Gagal: ${apiRes.data.message || 'Email tidak valid.'}`, 
+          backKeyboard
+        );
         delete userSessions[chatId];
       }
     } catch (e) {
-      await sendMessage(chatId, "❌ Terjadi kesalahan server.");
+      await sendMessage(
+        chatId, 
+        "❌ Terjadi kesalahan server.", 
+        backKeyboard
+      );
       delete userSessions[chatId];
     }
     return res.status(200).send('OK');
@@ -118,12 +155,20 @@ module.exports = async (req, res) => {
 
       const premRes = await axios.post(AM_API_URL, { action: 'apply-premium', email, idToken });
       if (premRes.data.success) {
-        await sendMessage(chatId, `🎉 *SELAMAT! AKTIVASI BERHASIL* 🎉\n\nAkun Alight Motion kamu (\`${email}\`) sekarang sudah berstatus *PREMIUM*! √`);
+        await sendMessage(
+          chatId, 
+          `🎉 *SELAMAT! AKTIVASI BERHASIL* 🎉\n\nAkun Alight Motion kamu (\`${email}\`) sekarang sudah berstatus *PREMIUM*! √`, 
+          mainMenuKeyboard
+        );
       } else {
         throw new Error(premRes.data.message || 'Aktivasi premium gagal.');
       }
     } catch (err) {
-      await sendMessage(chatId, `❌ *Proses Gagal:* ${err.message}`);
+      await sendMessage(
+        chatId, 
+        `❌ *Proses Gagal:* ${err.message}`, 
+        backKeyboard
+      );
     } finally {
       delete userSessions[chatId];
     }
