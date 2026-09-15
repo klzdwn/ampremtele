@@ -20,7 +20,7 @@ const backKeyboard = {
   ]
 };
 
-// Fungsi Kirim Pesan (Mengembalikan data respon agar bisa ambil message_id bot)
+// Fungsi Kirim Pesan (Mengembalikan data respon pesan agar bisa ambil message_id)
 async function sendMessage(chatId, text, replyMarkup = null) {
   try {
     const payload = {
@@ -32,7 +32,7 @@ async function sendMessage(chatId, text, replyMarkup = null) {
       payload.reply_markup = replyMarkup;
     }
     const res = await axios.post(`${TELE_API}/sendMessage`, payload);
-    return res.data?.result; // Kembalikan object pesan yang dikirim bot
+    return res.data?.result;
   } catch (err) {
     console.error('Error sending message:', err.response?.data || err.message);
     return null;
@@ -83,7 +83,6 @@ module.exports = async (req, res) => {
         "Silakan masukkan *Email* akun Alight Motion kamu:", 
         backKeyboard
       );
-      // Simpan message_id instruksi bot ke session
       userSessions[chatId] = { 
         step: 'WAITING_EMAIL', 
         promptMessageId: sentMsg?.message_id 
@@ -137,22 +136,26 @@ module.exports = async (req, res) => {
   if (session && session.step === 'WAITING_EMAIL' && !text.startsWith('/')) {
     const email = text;
 
-    // Hapus pesan instruksi bot sebelumnya (misal: "Silakan masukkan Email...")
+    // Hapus instruksi "Silakan masukkan Email..."
     if (session.promptMessageId) {
       await deleteMessage(chatId, session.promptMessageId);
     }
 
-    await sendMessage(chatId, "⏳ Mengirim Magic Link ke email kamu, tunggu sebentar...");
+    // Kirim pesan status pengiriman
+    const loadingMsg = await sendMessage(chatId, "⏳ Mengirim Magic Link ke email kamu, tunggu sebentar...");
 
     try {
       const apiRes = await axios.post(AM_API_URL, { action: 'send-magiclink', email });
+
+      // Hapus pesan "⏳ Mengirim Magic Link..." setelah respon API selesai
+      if (loadingMsg) await deleteMessage(chatId, loadingMsg.message_id);
+
       if (apiRes.data.success) {
         const sentMsg = await sendMessage(
           chatId, 
           "✅ *Magic Link Terkirim!*\n\nBuka email kamu, tahan/salin link dari Alight Motion, lalu *tempelkan (paste) link tersebut di sini*:", 
           backKeyboard
         );
-        // Simpan message_id instruksi magic link ke session
         userSessions[chatId] = { 
           step: 'WAITING_LINK', 
           email: email, 
@@ -167,6 +170,7 @@ module.exports = async (req, res) => {
         delete userSessions[chatId];
       }
     } catch (e) {
+      if (loadingMsg) await deleteMessage(chatId, loadingMsg.message_id);
       await sendMessage(
         chatId, 
         "❌ Terjadi kesalahan server.", 
@@ -182,12 +186,13 @@ module.exports = async (req, res) => {
     const rawLink = text;
     const email = session.email;
 
-    // Hapus pesan instruksi bot sebelumnya (misal: "Magic Link Terkirim! Buka email...")
+    // Hapus instruksi "Magic Link Terkirim!..."
     if (session.promptMessageId) {
       await deleteMessage(chatId, session.promptMessageId);
     }
 
-    await sendMessage(chatId, "⏳ Memproses aktivasi Premium akun kamu...");
+    // Kirim pesan status proses aktivasi
+    const loadingMsg = await sendMessage(chatId, "⏳ Memproses aktivasi Premium akun kamu...");
 
     try {
       const verifyRes = await axios.post(AM_API_URL, { action: 'verify-account', email, rawLink });
@@ -196,6 +201,10 @@ module.exports = async (req, res) => {
       const idToken = verifyRes.data.idToken || verifyRes.data.profile?.idToken;
 
       const premRes = await axios.post(AM_API_URL, { action: 'apply-premium', email, idToken });
+
+      // Hapus pesan "⏳ Memproses aktivasi..." setelah selesai
+      if (loadingMsg) await deleteMessage(chatId, loadingMsg.message_id);
+
       if (premRes.data.success) {
         await sendMessage(
           chatId, 
@@ -206,6 +215,7 @@ module.exports = async (req, res) => {
         throw new Error(premRes.data.message || 'Aktivasi premium gagal.');
       }
     } catch (err) {
+      if (loadingMsg) await deleteMessage(chatId, loadingMsg.message_id);
       await sendMessage(
         chatId, 
         `❌ *Proses Gagal:* ${err.message}`, 
