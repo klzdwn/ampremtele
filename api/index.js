@@ -20,7 +20,7 @@ const backKeyboard = {
   ]
 };
 
-// Fungsi Kirim Pesan biasa
+// Fungsi Kirim Pesan
 async function sendMessage(chatId, text, replyMarkup = null) {
   try {
     const payload = {
@@ -49,7 +49,7 @@ async function deleteMessage(chatId, messageId) {
   }
 }
 
-// Fungsi Jawab Callback Query (Biar Indikator Loading Tombol Hilang)
+// Fungsi Jawab Callback Query
 async function answerCallbackQuery(callbackQueryId) {
   try {
     await axios.post(`${TELE_API}/answerCallbackQuery`, { callback_query_id: callbackQueryId });
@@ -70,7 +70,7 @@ module.exports = async (req, res) => {
     const data = callback_query.data;
     await answerCallbackQuery(callback_query.id);
 
-    // Hapus pesan lama yang ada tombolnya pas diklik
+    // Hapus pesan tombol lama
     await deleteMessage(chatId, messageId);
 
     // Tombol Mulai Aktivasi
@@ -97,6 +97,7 @@ module.exports = async (req, res) => {
   if (!message || !message.text) return res.status(200).send('OK');
 
   const chatId = message.chat.id;
+  const userMessageId = message.message_id; // ID pesan yang dikirim user
   const text = message.text.trim();
 
   // 2. COMMAND /start DENGAN TOMBOL
@@ -126,6 +127,10 @@ module.exports = async (req, res) => {
   // 3. STEP 1: TERIMA EMAIL
   if (session && session.step === 'WAITING_EMAIL' && !text.startsWith('/')) {
     const email = text;
+    
+    // Hapus pesan email yang dikirim oleh user
+    await deleteMessage(chatId, userMessageId);
+
     await sendMessage(chatId, "⏳ Mengirim Magic Link ke email kamu, tunggu sebentar...");
 
     try {
@@ -160,6 +165,9 @@ module.exports = async (req, res) => {
   if (session && session.step === 'WAITING_LINK' && !text.startsWith('/')) {
     const rawLink = text;
     const email = session.email;
+
+    // Hapus pesan link yang dikirim oleh user
+    await deleteMessage(chatId, userMessageId);
 
     await sendMessage(chatId, "⏳ Memproses aktivasi Premium akun kamu...");
 
