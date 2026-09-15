@@ -5,12 +5,14 @@ const TELE_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const AM_API_URL = 'https://anita-studio.netlify.app/.netlify/functions/amprem';
 
 const userSessions = {};
+// Penyimpan data riwayat aktivasi berdasarkan chatId
+const historyData = {};
 
 // 1. Reply Keyboard (Tombol Bawah Layar)
 const bottomMenuKeyboard = {
   keyboard: [
     [{ text: "⚡ Aktivasi Premium" }],
-    [{ text: "📜 Pesanan" }, { text: "ℹ️ Informasi" }]
+    [{ text: "📜 Riwayat" }, { text: "ℹ️ Informasi" }]
   ],
   resize_keyboard: true,
   persistent: true
@@ -120,7 +122,6 @@ module.exports = async (req, res) => {
   // 2. COMMAND /start ATAU PANGGILAN MENU UTAMA
   if (text === '/start') {
     delete userSessions[chatId];
-    // Mengirim pesan pembuka sekaligus memunculkan Reply Keyboard di bawah layar
     await sendMessage(
       chatId, 
       "🔥 *ALIGHT MOTION PREMIUM BOT* 🔥\n\nPilih menu di bawah atau klik tombol untuk memulai:", 
@@ -129,7 +130,7 @@ module.exports = async (req, res) => {
     return res.status(200).send('OK');
   }
 
-  // Handle ketika user menekan tombol menu di bawah layar
+  // Handle ketika user menekan tombol menu Aktivasi Premium
   if (text === '⚡ Aktivasi Premium' || text === '/prem') {
     const sentMsg = await sendMessage(
       chatId, 
@@ -143,13 +144,33 @@ module.exports = async (req, res) => {
     return res.status(200).send('OK');
   }
 
-  if (text === '📜 Pesanan') {
-    await sendMessage(chatId, "Fitur *Pesanan* belum tersedia.", bottomMenuKeyboard);
+  // Handle ketika user menekan tombol Riwayat
+  if (text === '📜 Riwayat') {
+    const userHistory = historyData[chatId];
+
+    if (!userHistory || userHistory.length === 0) {
+      await sendMessage(
+        chatId, 
+        "📜 *RIWAYAT AKTIVASI*\n\nBelum ada akun yang pernah diaktifkan.", 
+        bottomMenuKeyboard
+      );
+    } else {
+      let historyText = "📜 *RIWAYAT AKTIVASI PREMIUM*\n\n";
+      userHistory.forEach((item, index) => {
+        historyText += `${index + 1}. \`${item.email}\`\n   └ 🕒 ${item.date}\n`;
+      });
+      await sendMessage(chatId, historyText, bottomMenuKeyboard);
+    }
     return res.status(200).send('OK');
   }
 
+  // Handle ketika user menekan tombol Informasi
   if (text === 'ℹ️ Informasi') {
-    await sendMessage(chatId, "Bot ini digunakan untuk aktivasi Alight Motion Premium secara otomatis.\n\nowner @kaelptra hak cipta ©kalzstore", bottomMenuKeyboard);
+    await sendMessage(
+      chatId, 
+      "Bot ini digunakan untuk aktivasi Alight Motion Premium secara otomatis.\n\nowner @kaelptra hak cipta ©kalzstore", 
+      bottomMenuKeyboard
+    );
     return res.status(200).send('OK');
   }
 
@@ -223,6 +244,13 @@ module.exports = async (req, res) => {
       if (loadingMsg) await deleteMessage(chatId, loadingMsg.message_id);
 
       if (premRes.data.success) {
+        // Simpan ke daftar riwayat
+        if (!historyData[chatId]) {
+          historyData[chatId] = [];
+        }
+        const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
+        historyData[chatId].push({ email: email, date: now });
+
         await sendMessage(
           chatId, 
           `🎉 *SELAMAT! AKTIVASI BERHASIL* 🎉\n\nAkun Alight Motion kamu (\`${email}\`) sekarang sudah berstatus *PREMIUM*! √`, 
