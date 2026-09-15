@@ -6,21 +6,29 @@ const AM_API_URL = 'https://anita-studio.netlify.app/.netlify/functions/amprem';
 
 const userSessions = {};
 
-// Keyboard Menu Utama
+// 1. Reply Keyboard (Tombol Bawah Layar)
+const bottomMenuKeyboard = {
+  keyboard: [
+    [{ text: "⚡ Aktivasi Premium" }],
+    [{ text: "📜 Pesanan" }, { text: "ℹ️ Informasi" }]
+  ],
+  resize_keyboard: true,
+  persistent: true
+};
+
+// 2. Inline Keyboard (Tombol di dalam Chat)
 const mainMenuKeyboard = {
   inline_keyboard: [
     [{ text: "⚡ Mulai Aktivasi Premium ⚡", callback_data: "btn_prem" }]
   ]
 };
 
-// Keyboard Tahap Akhir (Selesai Aktivasi)
 const reactivateMenuKeyboard = {
   inline_keyboard: [
     [{ text: "⚡ Aktifkan Premium Lagi ⚡", callback_data: "btn_prem" }]
   ]
 };
 
-// Keyboard Tombol Kembali
 const backKeyboard = {
   inline_keyboard: [
     [{ text: "‹ Kembali", callback_data: "btn_back" }]
@@ -73,17 +81,15 @@ module.exports = async (req, res) => {
 
   const { message, callback_query } = req.body;
 
-  // 1. HANDLE KLIK TOMBOL (Callback Query)
+  // 1. HANDLE KLIK TOMBOL INLINE (Callback Query)
   if (callback_query) {
     const chatId = callback_query.message.chat.id;
     const messageId = callback_query.message.message_id;
     const data = callback_query.data;
     await answerCallbackQuery(callback_query.id);
 
-    // Hapus pesan tombol lama saat diklik
     await deleteMessage(chatId, messageId);
 
-    // Tombol Mulai Aktivasi
     if (data === 'btn_prem') {
       const sentMsg = await sendMessage(
         chatId, 
@@ -95,7 +101,6 @@ module.exports = async (req, res) => {
         promptMessageId: sentMsg?.message_id 
       };
     } 
-    // Tombol Kembali
     else if (data === 'btn_back') {
       delete userSessions[chatId];
       await sendMessage(
@@ -112,19 +117,20 @@ module.exports = async (req, res) => {
   const chatId = message.chat.id;
   const text = message.text.trim();
 
-  // 2. COMMAND /start DENGAN TOMBOL
+  // 2. COMMAND /start ATAU PANGGILAN MENU UTAMA
   if (text === '/start') {
     delete userSessions[chatId];
+    // Mengirim pesan pembuka sekaligus memunculkan Reply Keyboard di bawah layar
     await sendMessage(
       chatId, 
-      "🔥 *ALIGHT MOTION PREMIUM BOT* 🔥\n\nKlik tombol di bawah untuk memulai proses aktivasi akun:", 
-      mainMenuKeyboard
+      "🔥 *ALIGHT MOTION PREMIUM BOT* 🔥\n\nPilih menu di bawah atau klik tombol untuk memulai:", 
+      bottomMenuKeyboard
     );
     return res.status(200).send('OK');
   }
 
-  // COMMAND /prem
-  if (text === '/prem') {
+  // Handle ketika user menekan tombol menu di bawah layar
+  if (text === '⚡ Aktivasi Premium' || text === '/prem') {
     const sentMsg = await sendMessage(
       chatId, 
       "Silakan masukkan *Email* akun Alight Motion kamu:", 
@@ -134,6 +140,16 @@ module.exports = async (req, res) => {
       step: 'WAITING_EMAIL', 
       promptMessageId: sentMsg?.message_id 
     };
+    return res.status(200).send('OK');
+  }
+
+  if (text === '📜 Pesanan') {
+    await sendMessage(chatId, "Fitur *Pesanan* belum tersedia.", bottomMenuKeyboard);
+    return res.status(200).send('OK');
+  }
+
+  if (text === 'ℹ️ Informasi') {
+    await sendMessage(chatId, "Bot ini digunakan untuk aktivasi Alight Motion Premium secara otomatis.", bottomMenuKeyboard);
     return res.status(200).send('OK');
   }
 
