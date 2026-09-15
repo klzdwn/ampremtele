@@ -20,7 +20,7 @@ const backKeyboard = {
   ]
 };
 
-// Fungsi Kirim Pesan dengan Option (Keyboard/Button)
+// Fungsi Kirim Pesan biasa
 async function sendMessage(chatId, text, replyMarkup = null) {
   try {
     const payload = {
@@ -34,6 +34,18 @@ async function sendMessage(chatId, text, replyMarkup = null) {
     await axios.post(`${TELE_API}/sendMessage`, payload);
   } catch (err) {
     console.error('Error sending message:', err.response?.data || err.message);
+  }
+}
+
+// Fungsi Hapus Pesan
+async function deleteMessage(chatId, messageId) {
+  try {
+    await axios.post(`${TELE_API}/deleteMessage`, {
+      chat_id: chatId,
+      message_id: messageId
+    });
+  } catch (err) {
+    console.error('Error deleting message:', err.response?.data || err.message);
   }
 }
 
@@ -54,8 +66,12 @@ module.exports = async (req, res) => {
   // 1. HANDLE KLIK TOMBOL (Callback Query)
   if (callback_query) {
     const chatId = callback_query.message.chat.id;
+    const messageId = callback_query.message.message_id;
     const data = callback_query.data;
     await answerCallbackQuery(callback_query.id);
+
+    // Hapus pesan lama yang ada tombolnya pas diklik
+    await deleteMessage(chatId, messageId);
 
     // Tombol Mulai Aktivasi
     if (data === 'btn_prem') {
