@@ -149,7 +149,7 @@ module.exports = async (req, res) => {
   }
 
   if (text === 'ℹ️ Informasi') {
-    await sendMessage(chatId, "Bot ini digunakan untuk aktivasi Alight Motion Premium secara otomatis.\n\nowner@kaelptra hak cipta ©kalzstore", bottomMenuKeyboard);
+    await sendMessage(chatId, "Bot ini digunakan untuk aktivasi Alight Motion Premium secara otomatis.\n\nowner @kaelptra hak cipta ©kalzstore", bottomMenuKeyboard);
     return res.status(200).send('OK');
   }
 
