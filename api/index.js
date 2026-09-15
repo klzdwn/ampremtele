@@ -84,7 +84,7 @@ module.exports = async (req, res) => {
 
       const premRes = await axios.post(AM_API_URL, { action: 'apply-premium', email, idToken });
       if (premRes.data.success) {
-        await sendMessage(chatId, `🎉 *SELAMAT! AKTIVASI BERHASIL* 🎉\n\nAkun Alight Motion kamu (\`${email}\`) sekarang sudah berstatus **PREMIUM**! √`);
+        await sendMessage(chatId, `🎉 *SELAMAT! AKTIVASI BERHASIL* 🎉\n\nAkun Alight Motion kamu (\`${email}\`) sekarang sudah berstatus *PREMIUM*! √`);
       } else {
         throw new Error(premRes.data.message || 'Aktivasi premium gagal.');
       }
