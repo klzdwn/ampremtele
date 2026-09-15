@@ -4,42 +4,76 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const TELE_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const AM_API_URL = 'https://anita-studio.netlify.app/.netlify/functions/amprem';
 
-// Cache sederhana untuk alur user
 const userSessions = {};
 
-async function sendMessage(chatId, text) {
+// Fungsi Kirim Pesan dengan Option (Keyboard/Button)
+async function sendMessage(chatId, text, replyMarkup = null) {
   try {
-    await axios.post(`${TELE_API}/sendMessage`, {
+    const payload = {
       chat_id: chatId,
       text: text,
       parse_mode: 'Markdown'
-    });
+    };
+    if (replyMarkup) {
+      payload.reply_markup = replyMarkup;
+    }
+    await axios.post(`${TELE_API}/sendMessage`, payload);
   } catch (err) {
     console.error('Error sending message:', err.response?.data || err.message);
   }
 }
 
-module.exports = async (req, res) => {
-  if (req.method !== 'POST') {
-    return res.status(200).send('Bot Telegram AKtif!');
+// Fungsi Jawab Callback Query (Biar Indikator Loading Tombol Hilang)
+async function answerCallbackQuery(callbackQueryId) {
+  try {
+    await axios.post(`${TELE_API}/answerCallbackQuery`, { callback_query_id: callbackQueryId });
+  } catch (err) {
+    console.error('Error answer callback:', err.message);
   }
+}
 
-  const { message } = req.body;
-  if (!message || !message.text) {
+module.exports = async (req, res) => {
+  if (req.method !== 'POST') return res.status(200).send('Bot Telegram Aktif!');
+
+  const { message, callback_query } = req.body;
+
+  // 1. HANDLE KLIK TOMBOL (Callback Query)
+  if (callback_query) {
+    const chatId = callback_query.message.chat.id;
+    const data = callback_query.data;
+    await answerCallbackQuery(callback_query.id);
+
+    if (data === 'btn_prem') {
+      userSessions[chatId] = { step: 'WAITING_EMAIL' };
+      await sendMessage(chatId, "Silakan masukkan *Email* akun Alight Motion kamu:");
+    }
     return res.status(200).send('OK');
   }
+
+  if (!message || !message.text) return res.status(200).send('OK');
 
   const chatId = message.chat.id;
   const text = message.text.trim();
 
-  // 1. Command /start
+  // 2. COMMAND /start DENGAN TOMBOL
   if (text === '/start') {
     delete userSessions[chatId];
-    await sendMessage(chatId, "🔥 *KALZ ALIGHT MOTION PREMIUM BOT* 🔥\n\nKetik /prem untuk memulai proses aktivasi akun.");
+    
+    const inlineKeyboard = {
+      inline_keyboard: [
+        [{ text: "⚡ Mulai Aktivasi Premium ⚡", callback_data: "btn_prem" }]
+      ]
+    };
+
+    await sendMessage(
+      chatId, 
+      "🔥 *KALZ ALIGHT MOTION PREMIUM BOT* 🔥\n\nKlik tombol di bawah untuk memulai proses aktivasi akun:", 
+      inlineKeyboard
+    );
     return res.status(200).send('OK');
   }
 
-  // 2. Command /prem
+  // COMMAND /prem (Backup jika ngetik manual)
   if (text === '/prem') {
     userSessions[chatId] = { step: 'WAITING_EMAIL' };
     await sendMessage(chatId, "Silakan masukkan *Email* akun Alight Motion kamu:");
@@ -48,7 +82,7 @@ module.exports = async (req, res) => {
 
   const session = userSessions[chatId];
 
-  // 3. Handling Email
+  // 3. STEP 1: TERIMA EMAIL
   if (session && session.step === 'WAITING_EMAIL' && !text.startsWith('/')) {
     const email = text;
     await sendMessage(chatId, "⏳ Mengirim Magic Link ke email kamu, tunggu sebentar...");
@@ -69,7 +103,7 @@ module.exports = async (req, res) => {
     return res.status(200).send('OK');
   }
 
-  // 4. Handling Raw Link
+  // 4. STEP 2: TERIMA RAW LINK
   if (session && session.step === 'WAITING_LINK' && !text.startsWith('/')) {
     const rawLink = text;
     const email = session.email;
