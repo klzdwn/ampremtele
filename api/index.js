@@ -13,6 +13,13 @@ const mainMenuKeyboard = {
   ]
 };
 
+// Keyboard Tahap Akhir (Selesai Aktivasi)
+const reactivateMenuKeyboard = {
+  inline_keyboard: [
+    [{ text: "⚡ Aktifkan Premium Lagi ⚡", callback_data: "btn_prem" }]
+  ]
+};
+
 // Keyboard Tombol Kembali
 const backKeyboard = {
   inline_keyboard: [
@@ -20,7 +27,7 @@ const backKeyboard = {
   ]
 };
 
-// Fungsi Kirim Pesan (Mengembalikan data respon pesan agar bisa ambil message_id)
+// Fungsi Kirim Pesan
 async function sendMessage(chatId, text, replyMarkup = null) {
   try {
     const payload = {
@@ -136,18 +143,15 @@ module.exports = async (req, res) => {
   if (session && session.step === 'WAITING_EMAIL' && !text.startsWith('/')) {
     const email = text;
 
-    // Hapus instruksi "Silakan masukkan Email..."
     if (session.promptMessageId) {
       await deleteMessage(chatId, session.promptMessageId);
     }
 
-    // Kirim pesan status pengiriman
     const loadingMsg = await sendMessage(chatId, "⏳ Mengirim Magic Link ke email kamu, tunggu sebentar...");
 
     try {
       const apiRes = await axios.post(AM_API_URL, { action: 'send-magiclink', email });
 
-      // Hapus pesan "⏳ Mengirim Magic Link..." setelah respon API selesai
       if (loadingMsg) await deleteMessage(chatId, loadingMsg.message_id);
 
       if (apiRes.data.success) {
@@ -186,12 +190,10 @@ module.exports = async (req, res) => {
     const rawLink = text;
     const email = session.email;
 
-    // Hapus instruksi "Magic Link Terkirim!..."
     if (session.promptMessageId) {
       await deleteMessage(chatId, session.promptMessageId);
     }
 
-    // Kirim pesan status proses aktivasi
     const loadingMsg = await sendMessage(chatId, "⏳ Memproses aktivasi Premium akun kamu...");
 
     try {
@@ -202,14 +204,13 @@ module.exports = async (req, res) => {
 
       const premRes = await axios.post(AM_API_URL, { action: 'apply-premium', email, idToken });
 
-      // Hapus pesan "⏳ Memproses aktivasi..." setelah selesai
       if (loadingMsg) await deleteMessage(chatId, loadingMsg.message_id);
 
       if (premRes.data.success) {
         await sendMessage(
           chatId, 
           `🎉 *SELAMAT! AKTIVASI BERHASIL* 🎉\n\nAkun Alight Motion kamu (\`${email}\`) sekarang sudah berstatus *PREMIUM*! √`, 
-          mainMenuKeyboard
+          reactivateMenuKeyboard
         );
       } else {
         throw new Error(premRes.data.message || 'Aktivasi premium gagal.');
