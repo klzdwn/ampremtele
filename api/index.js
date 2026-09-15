@@ -71,7 +71,7 @@ module.exports = async (req, res) => {
       delete userSessions[chatId];
       await sendMessage(
         chatId, 
-        "🔥 *KALZ ALIGHT MOTION PREMIUM BOT* 🔥\n\nKlik tombol di bawah untuk memulai proses aktivasi akun:", 
+        "🔥 *ALIGHT MOTION PREMIUM BOT* 🔥\n\nKlik tombol di bawah untuk memulai proses aktivasi akun:", 
         mainMenuKeyboard
       );
     }
@@ -88,7 +88,7 @@ module.exports = async (req, res) => {
     delete userSessions[chatId];
     await sendMessage(
       chatId, 
-      "🔥 *KALZ ALIGHT MOTION PREMIUM BOT* 🔥\n\nKlik tombol di bawah untuk memulai proses aktivasi akun:", 
+      "🔥 *ALIGHT MOTION PREMIUM BOT* 🔥\n\nKlik tombol di bawah untuk memulai proses aktivasi akun:", 
       mainMenuKeyboard
     );
     return res.status(200).send('OK');
