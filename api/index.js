@@ -20,7 +20,7 @@ const backKeyboard = {
   ]
 };
 
-// Fungsi Kirim Pesan
+// Fungsi Kirim Pesan (Mengembalikan data respon agar bisa ambil message_id bot)
 async function sendMessage(chatId, text, replyMarkup = null) {
   try {
     const payload = {
@@ -31,14 +31,17 @@ async function sendMessage(chatId, text, replyMarkup = null) {
     if (replyMarkup) {
       payload.reply_markup = replyMarkup;
     }
-    await axios.post(`${TELE_API}/sendMessage`, payload);
+    const res = await axios.post(`${TELE_API}/sendMessage`, payload);
+    return res.data?.result; // Kembalikan object pesan yang dikirim bot
   } catch (err) {
     console.error('Error sending message:', err.response?.data || err.message);
+    return null;
   }
 }
 
 // Fungsi Hapus Pesan
 async function deleteMessage(chatId, messageId) {
+  if (!messageId) return;
   try {
     await axios.post(`${TELE_API}/deleteMessage`, {
       chat_id: chatId,
@@ -70,17 +73,21 @@ module.exports = async (req, res) => {
     const data = callback_query.data;
     await answerCallbackQuery(callback_query.id);
 
-    // Hapus pesan tombol lama
+    // Hapus pesan tombol lama saat diklik
     await deleteMessage(chatId, messageId);
 
     // Tombol Mulai Aktivasi
     if (data === 'btn_prem') {
-      userSessions[chatId] = { step: 'WAITING_EMAIL' };
-      await sendMessage(
+      const sentMsg = await sendMessage(
         chatId, 
         "Silakan masukkan *Email* akun Alight Motion kamu:", 
         backKeyboard
       );
+      // Simpan message_id instruksi bot ke session
+      userSessions[chatId] = { 
+        step: 'WAITING_EMAIL', 
+        promptMessageId: sentMsg?.message_id 
+      };
     } 
     // Tombol Kembali
     else if (data === 'btn_back') {
@@ -97,7 +104,6 @@ module.exports = async (req, res) => {
   if (!message || !message.text) return res.status(200).send('OK');
 
   const chatId = message.chat.id;
-  const userMessageId = message.message_id; // ID pesan yang dikirim user
   const text = message.text.trim();
 
   // 2. COMMAND /start DENGAN TOMBOL
@@ -113,12 +119,15 @@ module.exports = async (req, res) => {
 
   // COMMAND /prem
   if (text === '/prem') {
-    userSessions[chatId] = { step: 'WAITING_EMAIL' };
-    await sendMessage(
+    const sentMsg = await sendMessage(
       chatId, 
       "Silakan masukkan *Email* akun Alight Motion kamu:", 
       backKeyboard
     );
+    userSessions[chatId] = { 
+      step: 'WAITING_EMAIL', 
+      promptMessageId: sentMsg?.message_id 
+    };
     return res.status(200).send('OK');
   }
 
@@ -127,21 +136,28 @@ module.exports = async (req, res) => {
   // 3. STEP 1: TERIMA EMAIL
   if (session && session.step === 'WAITING_EMAIL' && !text.startsWith('/')) {
     const email = text;
-    
-    // Hapus pesan email yang dikirim oleh user
-    await deleteMessage(chatId, userMessageId);
+
+    // Hapus pesan instruksi bot sebelumnya (misal: "Silakan masukkan Email...")
+    if (session.promptMessageId) {
+      await deleteMessage(chatId, session.promptMessageId);
+    }
 
     await sendMessage(chatId, "⏳ Mengirim Magic Link ke email kamu, tunggu sebentar...");
 
     try {
       const apiRes = await axios.post(AM_API_URL, { action: 'send-magiclink', email });
       if (apiRes.data.success) {
-        userSessions[chatId] = { step: 'WAITING_LINK', email: email };
-        await sendMessage(
+        const sentMsg = await sendMessage(
           chatId, 
           "✅ *Magic Link Terkirim!*\n\nBuka email kamu, tahan/salin link dari Alight Motion, lalu *tempelkan (paste) link tersebut di sini*:", 
           backKeyboard
         );
+        // Simpan message_id instruksi magic link ke session
+        userSessions[chatId] = { 
+          step: 'WAITING_LINK', 
+          email: email, 
+          promptMessageId: sentMsg?.message_id 
+        };
       } else {
         await sendMessage(
           chatId, 
@@ -166,8 +182,10 @@ module.exports = async (req, res) => {
     const rawLink = text;
     const email = session.email;
 
-    // Hapus pesan link yang dikirim oleh user
-    await deleteMessage(chatId, userMessageId);
+    // Hapus pesan instruksi bot sebelumnya (misal: "Magic Link Terkirim! Buka email...")
+    if (session.promptMessageId) {
+      await deleteMessage(chatId, session.promptMessageId);
+    }
 
     await sendMessage(chatId, "⏳ Memproses aktivasi Premium akun kamu...");
 
